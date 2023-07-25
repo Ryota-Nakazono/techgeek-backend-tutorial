@@ -8,7 +8,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/users", (req, res) => {
-  res.send("<h3>Users</h3>");
+  res.send("<h2>Users</h2>");
 });
 
 app.listen(PORT, () => {
