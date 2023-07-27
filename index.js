@@ -1,14 +1,22 @@
 import express from "express";
+import dotenv from "dotenv";
+dotenv.config();
+import { TechGeekDB } from "./techgeek-db.js";
+TechGeekDB.init();
 
 const app = express();
 const PORT = 3000;
+
+app.use(express.json());
 
 app.get("/", (req, res) => {
   res.send("<h1>Hello World</h1>");
 });
 
-app.get("/users", (req, res) => {
-  res.send("<h2>Users</h2>");
+app.post("/login", (req, res) => {
+  const body = req.body;
+  console.log(body);
+  res.send(body);
 });
 
 app.listen(PORT, () => {
