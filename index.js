@@ -10,7 +10,7 @@ const PORT = 3000;
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("<h1>Hello World</h1>");
+  res.send("<h1>Hello World!</h1>");
 });
 
 app.post("/login", (req, res) => {
