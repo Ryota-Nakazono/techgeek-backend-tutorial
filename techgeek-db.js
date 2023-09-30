@@ -75,17 +75,32 @@ export const TechGeekDB = {
     }
   },
   createUser: async (name, email, password) => {
-    const client = await TechGeekDB.connect();
-    const result = await client.query(
-      `INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *;`,
-      [name, email, password]
-    );
-    return result.rows[0];
+    try {
+      const client = await TechGeekDB.connect();
+      const user = await TechGeekDB.getUser(email);
+      if (user) {
+        return { error: "このメールアドレスは登録されています" };
+      } else {
+        const result = await client.query(
+          `INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *;`,
+          [name, email, password]
+        );
+        return result.rows[0];
+      }
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
   },
   getUser: async (email) => {
-    const client = await TechGeekDB.connect();
-    const result = await client.query(`SELECT * FROM users WHERE email = $1;`, [email]);
-    return result.rows[0];
+    try {
+      const client = await TechGeekDB.connect();
+      const result = await client.query(`SELECT * FROM users WHERE email = $1;`, [email]);
+      return result.rows[0] || { message: "ユーザーが見つかりません" };
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
   },
   getUserById: async (id) => {
     const client = await TechGeekDB.connect();
@@ -93,17 +108,37 @@ export const TechGeekDB = {
     return result.rows[0];
   },
   createProduct: async (title, description, price, image_path) => {
-    const client = await TechGeekDB.connect();
-    const result = await client.query(
-      `INSERT INTO products (title, description, price, image_path) VALUES ($1, $2, $3, $4) RETURNING *;`,
-      [title, description, price, image_path]
-    );
-    return result.rows[0];
+    try {
+      const client = await TechGeekDB.connect();
+      const result = await client.query(
+        `INSERT INTO products (title, description, price, image_path) VALUES ($1, $2, $3, $4) RETURNING *;`,
+        [title, description, price, image_path]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
   },
-  getProductById: async (id) => {
-    const client = await TechGeekDB.connect();
-    const result = await client.query(`SELECT * FROM products WHERE id = $1;`, [id]);
-    return result.rows[0];
+  getProducts: async () => {
+    try {
+      const client = await TechGeekDB.connect();
+      const result = await client.query(`SELECT * FROM products;`);
+      return result.rows;
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
+  },
+  getProduct: async (id) => {
+    try {
+      const client = await TechGeekDB.connect();
+      const result = await client.query(`SELECT * FROM products WHERE id = $1;`, [id]);
+      return result.rows[0] || { message: "商品が見つかりません" };
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
   },
   createPurchase: async (user_id, amount, product_ids) => {
     const client = await TechGeekDB.connect();
@@ -118,6 +153,22 @@ export const TechGeekDB = {
     const result = await client.query(`SELECT * FROM purchases WHERE user_id = $1;`, [
       user_id,
     ]);
+    return result.rows[0];
+  },
+  updateUser: async (id, name, email, password) => {
+    const client = await TechGeekDB.connect();
+    const result = await client.query(
+      `UPDATE users SET name = $1, email = $2, password = $3 WHERE id = $4 RETURNING *;`,
+      [name, email, password, id]
+    );
+    return result.rows[0];
+  },
+  updateProduct: async (id, title, description, price, image_path) => {
+    const client = await TechGeekDB.connect();
+    const result = await client.query(
+      `UPDATE products SET title = $1, description = $2, price = $3, image_path = $4 WHERE id = $5 RETURNING *;`,
+      [title, description, price, image_path, id]
+    );
     return result.rows[0];
   },
 };
