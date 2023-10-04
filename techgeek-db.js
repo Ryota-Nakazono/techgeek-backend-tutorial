@@ -1,5 +1,9 @@
 import pg from "pg";
 
+const deletePurchasesOfUser = async (client, userId) => {
+  await client.query(`DELETE FROM purchases WHERE user_id = $1;`, [userId]);
+};
+
 export const TechGeekDB = {
   connect: async () => {
     const client = new pg.Pool({
@@ -92,20 +96,74 @@ export const TechGeekDB = {
       return { error: "不明なエラーが発生しました" };
     }
   },
-  getUser: async (email) => {
+  getUsers: async () => {
+    try {
+      const client = await TechGeekDB.connect();
+      const result = await client.query(`SELECT * FROM users;`);
+      return result.rows;
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
+  },
+  getUserByEmail: async (email) => {
     try {
       const client = await TechGeekDB.connect();
       const result = await client.query(`SELECT * FROM users WHERE email = $1;`, [email]);
-      return result.rows[0] || { message: "ユーザーが見つかりません" };
+      return result.rows[0];
     } catch (error) {
       console.log(error);
       return { error: "不明なエラーが発生しました" };
     }
   },
   getUserById: async (id) => {
-    const client = await TechGeekDB.connect();
-    const result = await client.query(`SELECT * FROM users WHERE id = $1;`, [id]);
-    return result.rows[0];
+    try {
+      const client = await TechGeekDB.connect();
+      const result = await client.query(`SELECT * FROM users WHERE id = $1;`, [id]);
+      return result.rows[0];
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
+  },
+  updateUser: async (id, name, email, password) => {
+    try {
+      const client = await TechGeekDB.connect();
+      const user = await TechGeekDB.getUserById(id);
+      console.log("更新前のユーザー情報：", user);
+      if (!user) {
+        return { error: "ユーザーが見つかりません" };
+      } else {
+        const result = await client.query(
+          `UPDATE users SET name = $1, email = $2, password = $3 WHERE id = $4 RETURNING *;`,
+          [name, email, password, id]
+        );
+        return result.rows[0];
+      }
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
+  },
+  deleteUser: async (id) => {
+    try {
+      const client = await TechGeekDB.connect();
+      const user = await TechGeekDB.getUserById(id);
+      console.log("削除前のユーザー情報：", user);
+      if (!user) {
+        return { error: "ユーザーが見つかりません" };
+      } else {
+        await deletePurchasesOfUser(client, id);
+        const result = await client.query(
+          `DELETE FROM users WHERE id = $1 RETURNING *;`,
+          [id]
+        );
+        return result.rows[0];
+      }
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
   },
   createProduct: async (title, description, price, image_path) => {
     try {
@@ -134,41 +192,74 @@ export const TechGeekDB = {
     try {
       const client = await TechGeekDB.connect();
       const result = await client.query(`SELECT * FROM products WHERE id = $1;`, [id]);
-      return result.rows[0] || { message: "商品が見つかりません" };
+      return result.rows[0] || { error: "商品が見つかりません" };
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
+  },
+  updateProduct: async (id, title, description, price, image_path) => {
+    try {
+      const client = await TechGeekDB.connect();
+      const product = await TechGeekDB.getProduct(id);
+      console.log("更新前の商品情報：", product);
+      if (product.error) {
+        return product;
+      } else {
+        const result = await client.query(
+          `UPDATE products SET title = $1, description = $2, price = $3, image_path = $4 WHERE id = $5 RETURNING *;`,
+          [title, description, price, image_path, id]
+        );
+        return result.rows[0];
+      }
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
+  },
+  deleteProduct: async (id) => {
+    try {
+      const client = await TechGeekDB.connect();
+      const product = await TechGeekDB.getProduct(id);
+      console.log("削除前の商品情報：", product);
+      if (product.error) {
+        return product;
+      } else {
+        const result = await client.query(
+          `DELETE FROM products WHERE id = $1 RETURNING *;`,
+          [id]
+        );
+        return result.rows[0];
+      }
     } catch (error) {
       console.log(error);
       return { error: "不明なエラーが発生しました" };
     }
   },
   createPurchase: async (user_id, amount, product_ids) => {
-    const client = await TechGeekDB.connect();
-    const result = await client.query(
-      `INSERT INTO purchases (user_id, amount, product_ids) VALUES ($1, $2, $3) RETURNING *;`,
-      [user_id, amount, product_ids]
-    );
-    return result.rows[0];
+    try {
+      const client = await TechGeekDB.connect();
+      for (let id of product_ids) {
+        const product = await TechGeekDB.getProduct(id);
+        if (product.error) {
+          return { error: `商品ID ${id} は存在しません` };
+        }
+      }
+      const result = await client.query(
+        `INSERT INTO purchases (user_id, amount, product_ids) VALUES ($1, $2, $3) RETURNING *;`,
+        [user_id, amount, product_ids]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.log(error);
+      return { error: "不明なエラーが発生しました" };
+    }
   },
   getPurchase: async (user_id) => {
     const client = await TechGeekDB.connect();
     const result = await client.query(`SELECT * FROM purchases WHERE user_id = $1;`, [
       user_id,
     ]);
-    return result.rows[0];
-  },
-  updateUser: async (id, name, email, password) => {
-    const client = await TechGeekDB.connect();
-    const result = await client.query(
-      `UPDATE users SET name = $1, email = $2, password = $3 WHERE id = $4 RETURNING *;`,
-      [name, email, password, id]
-    );
-    return result.rows[0];
-  },
-  updateProduct: async (id, title, description, price, image_path) => {
-    const client = await TechGeekDB.connect();
-    const result = await client.query(
-      `UPDATE products SET title = $1, description = $2, price = $3, image_path = $4 WHERE id = $5 RETURNING *;`,
-      [title, description, price, image_path, id]
-    );
     return result.rows[0];
   },
 };
