@@ -30,6 +30,31 @@ app.post("/user/register", async (req, res) => {
   }
 });
 
+// app.post("/login", async (req, res) => {
+//   const { email, password } = req.body;
+//   console.log({ email, password });
+//   const user = await TechGeekDB.getUserByEmail(email);
+//   console.log({ user });
+//   if (!user) {
+//     return res.status(401).send("ユーザーが見つかりません");
+//   }
+//   if (user.error) {
+//     return res.status(500).send(user.error);
+//   }
+//   const isMatch = await bcrypt.compare(password, user.password);
+//   if (!isMatch) {
+//     return res.status(401).send("パスワードが間違っています");
+//   }
+//   // TODO: パスワードの検証や、JWTの発行などを行う
+//   return res.status(200).send(user);
+// });
+
+const verifyPassword = async (password, hashedPassword) => {
+  const salt = bcrypt.getSalt(hashedPassword);
+  const hash = await bcrypt.hash(password, salt);
+  return hashedPassword === hash;
+};
+
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   console.log({ email, password });
@@ -41,11 +66,10 @@ app.post("/login", async (req, res) => {
   if (user.error) {
     return res.status(500).send(user.error);
   }
-  const isMatch = await bcrypt.compare(password, user.password);
+  const isMatch = await verifyPassword(password, user.password);
   if (!isMatch) {
     return res.status(401).send("パスワードが間違っています");
   }
-  // TODO: パスワードの検証や、JWTの発行などを行う
   return res.status(200).send(user);
 });
 
@@ -73,6 +97,37 @@ app.put("/users/update", async (req, res) => {
   } else {
     return res.status(200).send(user);
   }
+});
+
+// パスワードを変更するAPI
+app.post("/users/update/password", async (req, res) => {
+  const { email, password, newPassword } = req.body;
+  console.log({ email, password, newPassword });
+  const user = await TechGeekDB.getUserByEmail(email);
+  console.log({ user });
+  if (!user) {
+    return res.status(401).send("ユーザーが見つかりません");
+  }
+  const isMatch = await verifyPassword(password, user.password);
+  if (!isMatch) {
+    return res.status(401).send("現在のパスワードが間違っています");
+  }
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  const updatedUser = await TechGeekDB.updateUser(
+    user.id,
+    user.name,
+    user.email,
+    hashedPassword
+  );
+  console.log(updatedUser);
+  if (updatedUser.error) {
+    if (updatedUser.error === "ユーザーが見つかりません") {
+      return res.status(404).send(updatedUser.error);
+    } else {
+      return res.status(500).send(updatedUser.error);
+    }
+  }
+  return res.status(200).send(updatedUser);
 });
 
 app.delete("/users/delete", async (req, res) => {
