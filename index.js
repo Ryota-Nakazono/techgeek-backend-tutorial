@@ -4,6 +4,8 @@ dotenv.config();
 import { TechGeekDB } from "./techgeek-db.js";
 TechGeekDB.init();
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { userAuhentication } from "./middleware/index.js";
 
 const app = express();
 const PORT = 3000;
@@ -17,6 +19,15 @@ app.get("/", (req, res) => {
 /**
  * ユーザー情報のAPI
  */
+
+// パスワードの検証
+const verifyPassword = async (password, hashedPassword) => {
+  const salt = bcrypt.getSalt(hashedPassword);
+  const hash = await bcrypt.hash(password, salt);
+  return hashedPassword === hash;
+};
+
+// ユーザー登録API
 app.post("/user/register", async (req, res) => {
   const { name, email, password } = req.body;
   console.log({ name, email, password });
@@ -30,6 +41,7 @@ app.post("/user/register", async (req, res) => {
   }
 });
 
+// ログインAPI
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   console.log({ email, password });
@@ -41,14 +53,16 @@ app.post("/login", async (req, res) => {
   if (user.error) {
     return res.status(500).send(user.error);
   }
-  const isMatch = await bcrypt.compare(password, user.password);
+  const isMatch = await verifyPassword(password, user.password);
   if (!isMatch) {
     return res.status(401).send("パスワードが間違っています");
   }
-  // TODO: パスワードの検証や、JWTの発行などを行う
-  return res.status(200).send(user);
+  delete user.password;
+  const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "1d" });
+  return res.status(200).send(token);
 });
 
+// ユーザーの一覧を取得するAPI
 app.get("/users", async (req, res) => {
   const users = await TechGeekDB.getUsers();
   if (users.error) {
@@ -58,6 +72,15 @@ app.get("/users", async (req, res) => {
   }
 });
 
+// ユーザーの情報を取得するAPI
+app.get("/user/account", userAuhentication, async (req, res) => {
+  const user = req.user;
+  delete user.iat;
+  delete user.exp;
+  return res.status(200).send(user);
+});
+
+// ユーザーの情報を更新するAPI
 app.put("/users/update", async (req, res) => {
   const { id, name, email, password } = req.body;
   console.log({ id, name, email, password });
@@ -75,6 +98,38 @@ app.put("/users/update", async (req, res) => {
   }
 });
 
+// パスワードを変更するAPI
+app.post("/users/update/password", async (req, res) => {
+  const { email, password, newPassword } = req.body;
+  console.log({ email, password, newPassword });
+  const user = await TechGeekDB.getUserByEmail(email);
+  console.log({ user });
+  if (!user) {
+    return res.status(401).send("ユーザーが見つかりません");
+  }
+  const isMatch = await verifyPassword(password, user.password);
+  if (!isMatch) {
+    return res.status(401).send("現在のパスワードが間違っています");
+  }
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  const updatedUser = await TechGeekDB.updateUser(
+    user.id,
+    user.name,
+    user.email,
+    hashedPassword
+  );
+  console.log(updatedUser);
+  if (updatedUser.error) {
+    if (updatedUser.error === "ユーザーが見つかりません") {
+      return res.status(404).send(updatedUser.error);
+    } else {
+      return res.status(500).send(updatedUser.error);
+    }
+  }
+  return res.status(200).send(updatedUser);
+});
+
+// ユーザーを削除するAPI
 app.delete("/users/delete", async (req, res) => {
   const { id } = req.body;
   console.log({ id });
@@ -94,9 +149,12 @@ app.delete("/users/delete", async (req, res) => {
 /**
  * 商品情報のAPI
  */
-app.post("/product/create", async (req, res) => {
-  const { title, description, price, image_path } = req.body;
-  console.log({ title, description, price, image_path });
+
+// 商品を登録するAPI
+app.post("/product/create", userAuhentication, async (req, res) => {
+  const { title, description, price, image_path, token } = req.body;
+  console.log({ title, description, price, image_path, token });
+  console.log("user:", req.user);
   const product = await TechGeekDB.createProduct(title, description, price, image_path);
   console.log(product);
   if (product.error) {
@@ -106,6 +164,7 @@ app.post("/product/create", async (req, res) => {
   }
 });
 
+// 商品の一覧を取得するAPI
 app.get("/products", async (req, res) => {
   const products = await TechGeekDB.getProducts();
   if (products.error) {
@@ -115,6 +174,7 @@ app.get("/products", async (req, res) => {
   }
 });
 
+// 商品の情報を取得するAPI
 app.get("/product/:id", async (req, res) => {
   const { id } = req.params;
   const product = await TechGeekDB.getProduct(id);
@@ -129,6 +189,7 @@ app.get("/product/:id", async (req, res) => {
   return res.status(200).send(product);
 });
 
+// 商品の情報を更新するAPI
 app.put("/product/update", async (req, res) => {
   const { id, title, description, price, image_path } = req.body;
   const product = await TechGeekDB.updateProduct(
@@ -150,6 +211,7 @@ app.put("/product/update", async (req, res) => {
   }
 });
 
+// 商品を削除するAPI
 app.delete("/product/delete", async (req, res) => {
   const { id } = req.body;
   console.log({ id });
@@ -172,6 +234,8 @@ app.delete("/product/delete", async (req, res) => {
 /**
  * 注文情報のAPI
  */
+
+// 注文情報を登録するAPI
 app.post("/purchase/create", async (req, res) => {
   const { user_id, amount, product_ids } = req.body;
   console.log({ user_id, product_ids });
