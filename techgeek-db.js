@@ -81,7 +81,7 @@ export const TechGeekDB = {
   createUser: async (name, email, password) => {
     try {
       const client = await TechGeekDB.connect();
-      const user = await TechGeekDB.getUser(email);
+      const user = await TechGeekDB.getUserByEmail(email);
       if (user) {
         return { error: "このメールアドレスは登録されています" };
       } else {
