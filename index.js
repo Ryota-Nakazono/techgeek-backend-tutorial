@@ -19,6 +19,8 @@ orderRouter(app);
 const STATIC_PATH = `${process.cwd()}/frontend`;
 app.use(serveStatic(STATIC_PATH, { index: ["index.html"] }));
 
+app.get("/favicon.ico", (req, res) => res.status(204).send());
+
 app.get("/*", (req, res) => {
   console.log(STATIC_PATH + req.originalUrl + ".html");
   const contentHtml = readFileSync(STATIC_PATH + req.originalUrl + ".html", "utf-8");

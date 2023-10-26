@@ -1,13 +1,12 @@
-function submit() {
-  const name = document.getElementById("name").value;
+function submitLogin() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
-  fetch("/user/register", {
+  fetch("/login", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ email, password }),
   })
     .then((res) => res.json())
     .then((data) => {
@@ -15,7 +14,7 @@ function submit() {
       if (data.error) {
         alert(data.error);
       } else {
-        alert("登録が完了しました");
+        alert("ログインが完了しました");
       }
     })
     .catch((err) => {
